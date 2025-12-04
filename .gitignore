@@ -2,4 +2,5 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .vscode/
-.env
+.env.DS_Store
+.DS_Store
