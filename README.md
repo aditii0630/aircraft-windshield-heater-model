@@ -1,1 +1,0 @@
-# aircraft-windshield-heater-controller-thermal-model
