@@ -30,7 +30,7 @@ class WindshieldThermalModel:
     
     def convection_coefficient(self, T_r: float) -> float:
         rho, _, _, _ = air_properties(T_r, self.condition.pressure)
-        h = 1.15 * (T_r**0.3) * self.condition.velocity * (rho**0.8) * 0.51 / (self.params.length**0.2)
+        h = 1.15 * (T_r**0.3) * ((self.condition.velocity * rho)**0.8) * 0.51 / (self.params.length**0.2)
         return h
     
     def Q_convection(self, T_s: float, h: float, T_r: float) -> float:
@@ -55,11 +55,50 @@ class WindshieldThermalModel:
         return (self.params.emissivity * SIGMA * self.params.area * 
                 (T_s**4 - self.condition.T_ambient**4))
     
+    def Q_inner_loss(self, T_s: float) -> float:
+        """
+        Calculate Internal Heat Loss (qi) to the cockpit.
+        Based on US Patent 5,496,989 (Eq 9 and Eq 11).
+        
+        q_i = h_i * A * (T_s - T_cockpit)
+        """
+        # Ensure we don't calculate negative loss (heat gain) if cockpit is hotter 
+        # than windshield (rare in de-icing, but possible on ground).
+        # We allow negative return here to represent heat GAIN from cockpit.
+        return self.params.h_internal * self.params.area * (T_s - self.condition.T_cockpit)
+
+    
     def total_heat_loss(self, T_s: float, h: float, T_r: float) -> float:
-        return (self.Q_convection(T_s, h, T_r) + 
-                self.Q_evaporation(T_s, h) + 
-                self.Q_sensible(T_s) + 
-                self.Q_radiation(T_s))
+        """
+        Total heat loss = External Losses + Internal Loss
+        """
+        Q_ext_conv = self.Q_convection(T_s, h, T_r)
+        Q_ext_evap = self.Q_evaporation(T_s, h)
+        Q_ext_sens = self.Q_sensible(T_s)
+        Q_ext_rad  = self.Q_radiation(T_s)
+        
+        # Add the new internal loss
+        Q_int = self.Q_inner_loss(T_s)
+        return Q_ext_conv + Q_ext_evap + Q_ext_sens + Q_ext_rad + Q_int
+    
+    def get_heat_components(self, T_s: float, duty_cycle: float) -> dict:
+        """
+        Diagnostic function to return all heat components separately.
+        Useful for main.py analysis graphs.
+        """
+        T_r = self.recovery_temperature()
+        h = self.convection_coefficient(T_r)
+        
+        return {
+            "Power_Input": self.electrical_power(duty_cycle),
+            "Q_Convection_Ext": self.Q_convection(T_s, h, T_r),
+            "Q_Evaporation": self.Q_evaporation(T_s, h),
+            "Q_Sensible_Ice": self.Q_sensible(T_s),
+            "Q_Radiation": self.Q_radiation(T_s),
+            "Q_Conduction_Int": self.Q_inner_loss(T_s), # The new internal loss
+            "Total_Loss": self.total_heat_loss(T_s, h, T_r),
+            "Net_Flux": self.electrical_power(duty_cycle) - self.total_heat_loss(T_s, h, T_r)
+        }
     
     def electrical_power(self, duty_cycle: float) -> float:
         return duty_cycle * (self.params.voltage**2) / self.params.resistance

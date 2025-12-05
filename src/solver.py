@@ -1,31 +1,35 @@
 import numpy as np
+from scipy.integrate import solve_ivp
 from typing import Tuple, Callable
 from src.physics import windshield_ode, WindshieldThermalModel
 
-def runge_kutta_4(t0: float, T0: float, dt: float, t_final: float,
-                  model: WindshieldThermalModel, 
-                  duty_cycle_func: Callable[[float], float]) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    4th order Runge-Kutta solver.
-    """
-    t_vals = [t0]
-    T_vals = [T0]
+def solve_windshield_temperature(
+    t_span: Tuple[float, float],
+    T0: float,
+    model: WindshieldThermalModel,
+    duty_cycle_func: Callable[[float], float],
+    max_step: float = 10.0,      #if max step is very small(ex:1) it takes longer to run thr program so adjust it accordingly
+    **kwargs  # <--- NEW: Allow passing extra SciPy arguments
+) -> Tuple[np.ndarray, np.ndarray]:
     
-    t = t0
-    T = T0
-    
-    while t < t_final:
+    def ode_wrapper(t, y):
+        T_s = y[0] 
         d = duty_cycle_func(t)
-        
-        k1 = dt * windshield_ode(t, T, model, d)
-        k2 = dt * windshield_ode(t + dt/2, T + k1/2, model, d)
-        k3 = dt * windshield_ode(t + dt/2, T + k2/2, model, d)
-        k4 = dt * windshield_ode(t + dt, T + k3, model, d)
-        
-        T = T + (k1 + 2*k2 + 2*k3 + k4) / 6.0
-        t += dt
-        
-        t_vals.append(t)
-        T_vals.append(T)
-    
-    return np.array(t_vals), np.array(T_vals)
+        return [windshield_ode(t, T_s, model, d)]
+
+    # Only create t_eval if not using events (events conflict with fixed t_eval sometimes)
+    t_eval = None
+    if 'events' not in kwargs:
+        t_eval = np.arange(t_span[0], t_span[1], max_step)
+
+    sol = solve_ivp(
+        fun=ode_wrapper,
+        t_span=t_span,
+        y0=[T0],
+        method='RK45',
+        t_eval=t_eval,
+        max_step=max_step,
+        **kwargs  # <--- NEW: Pass them to solve_ivp
+    )
+
+    return sol.t, sol.y[0]

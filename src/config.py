@@ -30,18 +30,20 @@ class WindshieldParams:
     """Physical parameters of the windshield system"""
     def __init__(self):
         # Geometry
-        self.area = 0.8
-        self.length = 1.2
-        self.A_proj = 0.6
+        self.area = 0.8       # m²
+        self.length = 1.2     # m
+        self.A_proj = 0.6     # m²
         
         # Thermal properties
-        self.mass = 25.0
+        self.mass = 6.5
         self.c_p = 840.0
         self.emissivity = 0.9
         
         # Electrical system
         self.voltage = 28.0
-        self.resistance = 0.2
+        self.resistance = 0.4
+
+        self.h_internal= 12.0  # W/m²K 
 
 # ========================================
 # PRESETS
@@ -53,13 +55,13 @@ TAXI = FlightCondition(
 )
 
 CLIMB = FlightCondition(
-    name="Climb", velocity=125.0, T_ambient=263.15, T_cockpit=293.15,
-    altitude=5000, pressure=54000, LWC=0.001, droplet_temp=263.15,
+    name="Climb", velocity=60.0, T_ambient=263.15, T_cockpit=293.15,
+    altitude=3000, pressure=90000, LWC=0.001, droplet_temp=263.15,
     collection_efficiency=0.85
 )
 
 CRUISE = FlightCondition(
-    name="Cruise", velocity=250.0, T_ambient=218.15, T_cockpit=293.15,
-    altitude=11000, pressure=22700, LWC=0.0002, droplet_temp=218.15,
+    name="Cruise", velocity=150.0, T_ambient=218.15, T_cockpit=293.15,
+    altitude=8839, pressure=30100, LWC=0.0002, droplet_temp=218.15,
     collection_efficiency=0.9
 )
